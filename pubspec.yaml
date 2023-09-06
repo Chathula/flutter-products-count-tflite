@@ -37,6 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   image_picker: ^1.0.0
   tflite_v2: ^1.0.0
+  flutter_pytorch: ^1.0.1
 
 dev_dependencies:
   flutter_test:
@@ -62,8 +63,8 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/model2/model2.tflite
-    - assets/model2/labelmap.txt
+    - assets/yolov5/models/best.torchscript
+    - assets/yolov5/labels/labels.txt
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

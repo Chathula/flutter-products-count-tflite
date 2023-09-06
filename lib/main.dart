@@ -1,8 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_pytorch/pigeon.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:tflite_v2/tflite_v2.dart';
+import 'package:flutter_pytorch/flutter_pytorch.dart';
 
 void main() {
   runApp(const MyApp());
@@ -39,31 +40,29 @@ class _MyHomePageState extends State<MyHomePage> {
   String? tfModel;
   String _item = '';
   int _itemsCount = 0;
+  ModelObjectDetection? _objectModel;
+  File? _detectedImage;
+  List<ResultObjectDetection?> _objDetect = [];
 
   @override
   void initState() {
-    print('init state');
     super.initState();
-    initTFLite();
+    loadModal();
   }
 
-  initTFLite() async {
-    print('init tflite');
-
-    await Tflite.loadModel(
-        model: "assets/model2/model2.tflite",
-        labels: "assets/model2/labelmap.txt",
-        numThreads: 1, // defaults to 1
-        isAsset:
-            true, // defaults to true, set to false to load resources outside assets
-        useGpuDelegate:
-            false // defaults to false, set to true to use GPU delegate
-        );
+  loadModal() async {
+    ModelObjectDetection objectModel =
+        await FlutterPytorch.loadObjectDetectionModel(
+            "assets/yolov5/models/best.torchscript", 1, 640, 640,
+            labelPath: "assets/yolov5/labels/labels.txt");
+    setState(() {
+      _objectModel = objectModel;
+    });
   }
 
   void pickImage() async {
-    final pickedFile =
-        await ImagePicker().pickImage(source: ImageSource.gallery);
+    final pickedFile = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, maxWidth: 640, maxHeight: 640);
 
     if (pickedFile != null) {
       setState(() {
@@ -74,31 +73,42 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void detectProducts(XFile? file) async {
-    if (file != null) {
-      var recognitions = await Tflite.detectObjectOnImage(
-          path: File(file.path).path, // required
-          model: "SSDMobileNet",
-          imageMean: 127.5,
-          imageStd: 127.5,
-          threshold: 0.4, // defaults to 0.1
-          numResultsPerClass: 100, // defaults to 5
-          asynch: true);
+    if (file != null && _objectModel != null) {
+      File image = File(file.path);
 
-      print(recognitions);
+      List<ResultObjectDetection?> objDetect = await _objectModel!
+          .getImagePrediction(await image.readAsBytes(),
+              minimumScore: 0.1, IOUThershold: 0.3);
 
-      if (recognitions != null) {
-        setState(() {
-          _item = '';
-          _itemsCount = 0;
+      if (objDetect != null) {
+        String itemName = '';
+
+        int objectCount = 0;
+
+        // Define a confidence threshold
+        double confidenceThreshold = 0.5;
+
+        objDetect.forEach((element) {
+          print({"score": element!.score, "className": element!.className});
         });
 
-        recognitions.forEach((element) {
-          setState(() {
-            if (element['confidenceInClass'] > 0.50) {
-              _item = element['detectedClass'];
-              _itemsCount++;
+        for (var detection in objDetect) {
+          if (detection!.score >= confidenceThreshold) {
+            if (itemName == '') {
+              itemName = detection.className ?? '';
             }
-          });
+            objectCount++;
+          }
+        }
+
+        print({"itemName": itemName});
+        print({"_itemsCount": objectCount});
+
+        setState(() {
+          _item = itemName;
+          _itemsCount = objectCount;
+          _detectedImage = image;
+          _objDetect = objDetect;
         });
       }
     }
@@ -118,7 +128,14 @@ class _MyHomePageState extends State<MyHomePage> {
             _image != null
                 ? Column(
                     children: <Widget>[
-                      Image.file(File(_image!.path)),
+                      Container(
+                        height: 400,
+                        width: 350,
+                        child: _objDetect!.isNotEmpty && _detectedImage != null
+                            ? _objectModel!
+                                .renderBoxesOnImage(_detectedImage!, _objDetect)
+                            : const Text("Generating..."),
+                      ),
                       Padding(
                         padding: EdgeInsets.only(top: 15),
                         child: Text(

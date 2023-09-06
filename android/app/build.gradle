@@ -32,6 +32,12 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    externalNativeBuild {
+       cmake {
+           version "3.22.1"
+       }
+   }
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
@@ -45,7 +51,7 @@ android {
         applicationId "com.example.products_count_poc"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdkVersion 19
+        minSdkVersion 24
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -53,15 +59,12 @@ android {
 
     buildTypes {
         release {
+            shrinkResources false
+            minifyEnabled false
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig signingConfigs.debug
         }
-    }
-
-    aaptOptions {
-        noCompress 'tflite'
-        noCompress 'lite'
     }
 }
 
